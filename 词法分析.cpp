@@ -2,23 +2,158 @@
 #include <stdio.h>
 #include <string.h>
 #include <windows.h>
+#include <iostream>
+//#include <string>
+
 
 using namespace std;
+#define bufferlengh 4095
+#define halflength 2047
+#define tokenlength 100
+#define keywordsnum 32
+#define tablelength 150
+
+
+FILE *file=NULL,*output=NULL,*error_file=NULL;
+
+//?????? 
+int NumSpace,NumKeyword,NumRow,NumAriOprt,NumLogOprt,NumError;
+
+
+int state;
+char C;
+int iskey;
+char token[tokenlength];
+//int lexemebegin;
+int tokenptr;
+int tableptr;
+int forward;
+char buffer[bufferlengh];
+
+char table[tablelength][30];
+char keywords[keywordsnum][15]={
+"auto","break","case","char","const","continue","default","do"
+,"double","else","enum","extern","float","for","goto","if","int","long",
+"register","return","short","signed","sizeof","fstatic","struct","switch",
+"typedef","union","unsigned","void","volatile","while"};
+
+void initial()
+{   NumSpace=0;NumKeyword=0;NumRow=0;NumAriOprt=0;NumLogOprt=0;NumError=0;
+	forward=0;tokenptr=0;tableptr=0;
+}
+//??????????
+void fillbuffer(int p)
+{   int i;
+	for(i=0;i<=halflength&&!feof(file);i++)
+		buffer[p+i]=fgetc(file);
+	if(feof(file)) buffer[p+i]='\0';
+}
+
+void get_char()
+{ 	C=buffer[forward];
+	if(forward==halflength){
+		fillbuffer(halflength+1);
+		forward++;
+	}
+	else if(forward==bufferlengh){
+		fillbuffer(0);
+		forward=0;
+	}
+	else forward++;  
+	
+}
+
+void get_nbc()
+{  while(1)
+	 {if(C==' '||C=='\n'||C=='	'){
+	 	 if(C=='\n')
+	 	  NumRow++;
+		  
+		 get_char();
+		 
+	  }
+	  else
+	   break;	 
+	 }	
+}
+
+void cat()
+{   token[tokenptr++]=C;
+}
+
+bool letter() //????°¡?°§?C??°§???°¡???
+{   return ((C>='a'&&C<='z')||(C>='A'&&C<='Z'));
+}
+
+bool digit() //????°¡?°§?C??°§?????°¡?
+{  return (C>='0'&&C<='9');
+}
+
+void retract() //??????????????
+{   if(forward==0)
+		forward=bufferlengh;
+	else
+		forward--;
+}
+
+int reserve()
+{   int i;
+	for(i=0;i<keywordsnum;i++)
+	   if(strcmp(token,keywords[i])==0)
+		  return i;
+	if(i==keywordsnum+1)
+	    return -1;	
+}
+
+int table_insert()
+{   strcpy(table[tableptr],token);
+	return tableptr++;
+}
+
+void error()
+{  printf("error:illegal character\n");
+}
 
 
 typedef struct{
 	string id;
 	string type; 
+	//string s;
 }idInfo;
 
+void my_return(idInfo temp)
+{
+	//?????????°ß ??????
+	printf("< %s , %s >\n",temp.id.c_str(),temp.type.c_str()); 
+}
+
 int main()
-{   idInfo temp;
-    do{
-        
+{   char filename[30];
+	printf("Please input the filename(e.g. test1.cpp)??\n");
+	scanf("%s",filename);
+	file=fopen(filename,"r");
+	
+	while(output==NULL)
+		output=fopen("output.txt","w");
+	while(error_file==NULL)
+		error_file=fopen("error_file.txt","w");
+	while(file==NULL){
+		printf("The file don't exist,please input again??\n");
+		scanf("%s",filename);
+		file=fopen(filename,"r");
+	}
+	printf("\nThe result of Lexical analyze:\n");
+	initial();
+	fillbuffer(0);
+	get_nbc();
+
+    idInfo temp;
+    
+    do{       
         switch (state)
         {
             case 0:
-                token="";
+                memset(token,0,100);//token='';
                 get_char();
                 get_nbc();
 
@@ -37,11 +172,11 @@ int main()
                     case 'P': case 'Q': case 'R': case 'S': case 'T':
                     case 'U': case 'V': case 'W': case 'X': case 'Y':
                     case 'Z':
-                              state=1;break;//ËÆæÁΩÆÊ†áËØÜÁ¨¶Áä∂ÊÄÅ 
+                              state=1;break;//?®®??°¿®∫??°§?°¡??? 
                     
                     case '0': case '1': case '2': case '3': case '4': 
                     case '5': case '6': case '7': case '8': case '9':
-                              state=2;break;//ËÆæÁΩÆÂ∏∏Êï∞Áä∂ÊÄÅ
+                              state=2;break;//?®®??????°¡???
                     
                     case '<': 
                               state=8;
@@ -74,51 +209,53 @@ int main()
                               state=20;
                               break;
                     case '*':
-                              state=23;
+                              state=21;
+                              break;
+                    case ':':
+                              state=22;
                               break;
                     case '%': 
                               state=0;
-                              temp.id='%';
-                              temp.type='-';
-                              return tempÔºõ
+                              temp.id ="%";
+                              temp.type="-";
+                              my_return(temp);
                               break;
                     case ',':
                               state=0;
                               temp.id=',';
                               temp.type='-';
-                              return temp;
+                              my_return(temp);
                               break;
                     case ';':
                               state=0;
                               temp.id=';';
                               temp.type='-';
-                              return temp;
+                               my_return(temp);
                               break;
-                    case ':':
-                              state=0;temp.id=':';temp.type='-';return temp;break;
+                    
                     case '(':
-                              state=0;temp.id='(';temp.type='-';return temp;break;
+                              state=0;temp.id='(';temp.type='-';my_return(temp);break;
                     case ')':
-                              state=0;temp.id=')';temp.type='-';return temp;break;                    
+                              state=0;temp.id=')';temp.type='-';my_return(temp);break;                    
                     case '{':
-                              state=0;temp.id='{';temp.type='-';return temp;break;         
+                              state=0;temp.id='{';temp.type='-';my_return(temp);break;         
                     case '}':
-                              state=0;temp.id='}';temp.type='-';return temp;break;          
+                              state=0;temp.id='}';temp.type='-';my_return(temp);break;          
                     case '[':
-                              state=0;temp.id='[';temp.type='-';return temp;break;
+                              state=0;temp.id='[';temp.type='-';my_return(temp);break;
                     case ']':
-                              state=0;temp.id=']';temp.type='-';return temp;break;
+                              state=0;temp.id=']';temp.type='-';my_return(temp);break;
                     case '"':
-                              state=0;temp.id='"';temp.type='-';return temp;break;
+                              state=0;temp.id='"';temp.type='-';my_return(temp);break;
                     case '\'':
-                              state=0;temp.id='\'';temp.type='-';return temp;break; 
+                              state=0;temp.id='\'';temp.type='-';my_return(temp);break; 
                     case '.':
-                              state=0;temp.id='.';temp.type='_';return temp;break;     
+                              state=0;temp.id='.';temp.type='_';my_return(temp);break;     
                     case '\n':
-                              state=0;temp.id='\n';temp.type='-';return temp;break;    
+                              state=0;temp.id='\n';temp.type='-';my_return(temp);break;    
 
                     default:
-                              state=24;break;
+                              state=23;break;
                 }
             
                 break;
@@ -133,15 +270,15 @@ int main()
                        state=0;
                        iskey=reserve();
                        if(iskey!=-1)
-                         {temp.id='iskey';
-                          temp.type='-';
-                          return temp;
+                         {temp.id="iskey";
+                          temp.type="-";
+                          my_return(temp);
                          }
                         else
-                        { identry=table_insert();
-                          temp.id='ID';
-                          temp.type='identry';
-                          return temp;
+                        { int identry=table_insert();
+                          temp.id="ID";
+                          temp.type="identry";
+                          my_return(temp);
                         }
 
                     }
@@ -160,15 +297,15 @@ int main()
                         case '.':
                                   state=3;break;
 
-                        case "E":
+                        case 'E':
                                   state=5;break;                      
                     
                         default:
                                   retract();
                                   state=0;
-                                  temp.id='NUM';
-                                  temp.type=token;//Â≠óÁ¨¶‰∏≤ËΩ¨Êï∞Â≠ó  SToI
-                                  return temp;                                
+                                  temp.id="NUM";
+                                  temp.type=token;//°¡?°§???°¡???°¡?  SToI
+                                  my_return(temp);                                
                                   break;
                     }
                     break;
@@ -199,9 +336,9 @@ int main()
                         default:
                                  retract();
                                  state=0;
-                                 temp.id='NUM';
-                                 temp.type=token;//Â≠óÁ¨¶‰∏≤ËΩ¨ÊµÆÁÇπÊï∞ SToF
-                                 return temp;
+                                 temp.id="NUM";
+                                 temp.type=token;//°¡?°§???°¡??????? SToF
+                                 my_return(temp);
                             break;               
                     }
                     break;
@@ -244,22 +381,247 @@ int main()
                    else{
                        retract();
                        state=0;
-                       temp.id='NUM';
-                       temp.type=token; //Â≠óÁ¨¶‰∏≤ËΩ¨ÊµÆÁÇπÊï∞ SToF
+                       temp.id="NUM";
+                       temp.type=token; //°¡?°§???°¡??????? SToF
                    }
                    break;
             
             case 8:
-                   
+                  cat();
+                  get_char();
                   
-                    
+                  switch (C)
+                  {
+                      case '=':
+                          cat();
+                          state=0;
+                          temp.id="relop";
+                          temp.type="LE";
+                          my_return(temp);
+                          break;
+                      case '>':
+                          cat();
+                          state=0;
+                          temp.id="relop";
+                          temp.type="NE";
+                          my_return(temp);
+                          break;                  
+                      default:
+                          retract();
+                          state=0;
+                          temp.id="relop";
+                          temp.type="LT";
+                          my_return(temp);
+                          break;
+                  }
+                  break;
+            
+            case 9://'>'
+                   cat();
+                   get_char();
+                   if(C=='='){
+                       cat();
+                       state=0;
+                       temp.id="relop";
+                       temp.type="GE";
+                       my_return(temp);
+                   }
+                   else{
+                       retract();
+                       state=0;
+                       temp.id="relop"; temp.type="-";
+                       my_return(temp);
+                   }
+                   break;
+            
+            case 10://'='
+                   // cat();
+                    get_char();
+                    if(C=='='){
+                        cat();
+                        state=0;
+                        temp.id="==";temp.type="-";
+                        my_return(temp);
+                    }
+                    else{
+                        retract();
+                        state=0;
+                        temp.id="relop";temp.type="EQ";
+                        my_return(temp);
+                    }
+                    break;
 
-                   
-        
+            case 11://'+'
+                    cat();
+                    get_char();
+                    if(C=='+'){
+                        cat();
+                        state=0;
+                        temp.id="++";temp.type="-";
+                        my_return(temp);
+                    }
+                    else if(C=='='){
+                        cat();
+                        state=0;
+                        temp.id="+=";temp.type="-";
+                        my_return(temp);
+                    }
+                    else{
+                        retract();
+                        state=0;
+                        temp.id="+";temp.type="-";
+                        my_return(temp);
+                    }
+                    break;
+            
+            case 12://'-'
+                    cat();
+                    get_char();
+                    if(C=='-'){
+                        cat();
+                        state=0;
+                        temp.id="--";temp.type="-";
+                        my_return(temp);
+                    }
+                    else if(C=='='){
+                        cat();
+                        state=0;
+                        temp.id="-=";temp.type="-";
+                        my_return(temp);
+                    }
+                    else{
+                        retract();
+                        state=0;
+                        temp.id="-";temp.type="-";
+                        my_return(temp);
+                    }
+                    break;
+            case 13://'/'
+                    cat();
+                    get_char();
+                    if(C=='*') state=14;
+                    else if(C=='/') state=16;
+                    else if(C=='='){
+                        state=0;
+                        temp.id="/=";temp.type="-";
+                        my_return(temp);
+                    }
+                    else{
+                        state=0;
+                        temp.id="/";temp.type="-";
+                        my_return(temp);
+                    }
+                    break;
+            
+            case 14://'/*'
+                    cat();
+                    get_char();
+                    if(C=='*') state=15;
+                    else{
+                        state=14;
+                    }
+                    break;
+            
+            case 15://'*/'
+                   cat();
+                   get_char();
+                   if(C=='/') state=0;
+                   else state=14;
+                   break;
+            
+            case 16:// '//'
+                   cat();
+                   if(C=='\n') state=0;
+                   else state=16;
+                   break;
+            
+            case 17:// '|'
+                  cat();
+                  get_char();
+                  if(C=='|'){
+                      cat();
+                      state=0;
+                      temp.id="||";temp.type="-";
+                      my_return(temp);
+                  }
+                  else{
+                      state=0;
+                  }
+                  break;
+            
+            case 18: // '&'
+                  cat();
+                  get_char();
+                  if(C=='&'){
+                      cat();
+                      state=0;
+                      temp.id="&&";temp.type="-";
+                      my_return(temp);
+                  }
+                  else{
+                      state=0;
+                  }
+                  break;
 
-            default:
+            case 19: // '!'
+                  cat();
+                  get_char();
+                  if(C=='='){
+                      cat();
+                      state=0;
+                      temp.id="!=";temp.type="NE";
+                      my_return(temp);
+                  }
+                  else{
+                      state=0;
+                  }
+                  break;
+
+            case 20://  '#'
+                  cat();
+                  get_char();
+			      while(C!='\n')
+				      get_char();
+			      retract();
+                  state=0;
+                  break;
+            case 21:// '*'
+                  cat();
+                  get_char();
+                  if(C=='='){
+                      cat();
+                      state=0;
+                      temp.id="*=";temp.type="-";
+                      my_return(temp);
+                  }
+                  else{
+                      state=0;
+                      temp.id="*";temp.type="-";
+                      my_return(temp);
+                  }
+                  break;
+
+            case 22:// ':'
+                cat();
+                get_char();
+                if(C=='='){
+                    cat();
+                    state=0;
+                    temp.id="assign-op";temp.type="-";
+                    my_return(temp);
+                }
+                else{
+                    state=0;
+                }
                 break;
-        }
 
-    }
+
+            case 23:// 'other'
+                error();
+                state=0;
+                break;
+            }
+
+    }while(C!=EOF);
 }
+
