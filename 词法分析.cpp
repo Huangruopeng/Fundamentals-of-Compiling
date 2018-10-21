@@ -16,13 +16,14 @@ using namespace std;
 
 FILE *file=NULL,*output=NULL,*error_file=NULL;
 
-//?????? 
+//ÁªüËÆ°Èáè 
 int NumSpace,NumKeyword,NumRow,NumAriOprt,NumLogOprt,NumError;
 
 
 int state;
 char C;
 int iskey;
+//string token;
 char token[tokenlength];
 //int lexemebegin;
 int tokenptr;
@@ -38,10 +39,11 @@ char keywords[keywordsnum][15]={
 "typedef","union","unsigned","void","volatile","while"};
 
 void initial()
-{   NumSpace=0;NumKeyword=0;NumRow=0;NumAriOprt=0;NumLogOprt=0;NumError=0;
+{   state=0;
+    NumSpace=0;NumKeyword=0;NumRow=0;NumAriOprt=0;NumLogOprt=0;NumError=0;
 	forward=0;tokenptr=0;tableptr=0;
 }
-//??????????
+//Â°´ÂÖÖÁºìÂÜ≤Âå∫
 void fillbuffer(int p)
 {   int i;
 	for(i=0;i<=halflength&&!feof(file);i++)
@@ -70,6 +72,7 @@ void get_nbc()
 	 	  NumRow++;
 		  
 		 get_char();
+		// forward--;
 		 
 	  }
 	  else
@@ -81,15 +84,15 @@ void cat()
 {   token[tokenptr++]=C;
 }
 
-bool letter() //????°¡?°§?C??°§???°¡???
+bool letter() //Âà§Êñ≠Â≠óÁ¨¶CÊòØÂê¶‰∏∫Â≠óÊØç
 {   return ((C>='a'&&C<='z')||(C>='A'&&C<='Z'));
 }
 
-bool digit() //????°¡?°§?C??°§?????°¡?
+bool digit() //Âà§Êñ≠Â≠óÁ¨¶CÊòØÂê¶‰∏∫Êï∞Â≠ó
 {  return (C>='0'&&C<='9');
 }
 
-void retract() //??????????????
+void retract() //ÁºìÂÜ≤Âå∫ÊåáÈíàÂõûÈÄÄ
 {   if(forward==0)
 		forward=bufferlengh;
 	else
@@ -101,7 +104,7 @@ int reserve()
 	for(i=0;i<keywordsnum;i++)
 	   if(strcmp(token,keywords[i])==0)
 		  return i;
-	if(i==keywordsnum+1)
+	if(i==keywordsnum)
 	    return -1;	
 }
 
@@ -123,13 +126,13 @@ typedef struct{
 
 void my_return(idInfo temp)
 {
-	//?????????°ß ??????
+	//ËæìÂá∫ÊéßÂà∂Âè∞ ÂíåÊñá‰ª∂
 	printf("< %s , %s >\n",temp.id.c_str(),temp.type.c_str()); 
 }
 
 int main()
 {   char filename[30];
-	printf("Please input the filename(e.g. test1.cpp)??\n");
+	printf("Please input the filename(e.g. test1.cpp)Ôºö\n");
 	scanf("%s",filename);
 	file=fopen(filename,"r");
 	
@@ -138,7 +141,7 @@ int main()
 	while(error_file==NULL)
 		error_file=fopen("error_file.txt","w");
 	while(file==NULL){
-		printf("The file don't exist,please input again??\n");
+		printf("The file don't exist,please input againÔºö\n");
 		scanf("%s",filename);
 		file=fopen(filename,"r");
 	}
@@ -154,6 +157,7 @@ int main()
         {
             case 0:
                 memset(token,0,100);//token='';
+                tokenptr=0;
                 get_char();
                 get_nbc();
 
@@ -172,11 +176,11 @@ int main()
                     case 'P': case 'Q': case 'R': case 'S': case 'T':
                     case 'U': case 'V': case 'W': case 'X': case 'Y':
                     case 'Z':
-                              state=1;break;//?®®??°¿®∫??°§?°¡??? 
+                              state=1;break;// 
                     
                     case '0': case '1': case '2': case '3': case '4': 
                     case '5': case '6': case '7': case '8': case '9':
-                              state=2;break;//?®®??????°¡???
+                              state=2;break;//
                     
                     case '<': 
                               state=8;
@@ -263,21 +267,26 @@ int main()
             case 1:
                     cat();
                     get_char();
-                    if( letter() || digit() )
-                       state=1;
+                    if( letter() || digit() )                      
+					    state=1;
                     else
                     {  retract();
                        state=0;
                        iskey=reserve();
                        if(iskey!=-1)
-                         {temp.id="iskey";
-                          temp.type="-";
-                          my_return(temp);
+                         { string str(keywords[iskey]);
+						   //temp.id=str;
+						   temp.id=str;//strcpy(temp.id,keywords[iskey].);
+                           temp.type="-";
+                           my_return(temp);
                          }
                         else
                         { int identry=table_insert();
                           temp.id="ID";
-                          temp.type="identry";
+                          
+                          string st(table[identry]);
+                          temp.type=st;
+                         // printf("***%s***\n",st.c_str());
                           my_return(temp);
                         }
 
@@ -304,7 +313,7 @@ int main()
                                   retract();
                                   state=0;
                                   temp.id="NUM";
-                                  temp.type=token;//°¡?°§???°¡???°¡?  SToI
+                                  temp.type=token;//Â≠óÁ¨¶‰∏≤ËΩ¨Êï∞Â≠ó  SToI
                                   my_return(temp);                                
                                   break;
                     }
@@ -337,7 +346,7 @@ int main()
                                  retract();
                                  state=0;
                                  temp.id="NUM";
-                                 temp.type=token;//°¡?°§???°¡??????? SToF
+                                 temp.type=token;//Â≠óÁ¨¶‰∏≤ËΩ¨ÊµÆÁÇπÊï∞ SToF
                                  my_return(temp);
                             break;               
                     }
@@ -382,7 +391,7 @@ int main()
                        retract();
                        state=0;
                        temp.id="NUM";
-                       temp.type=token; //°¡?°§???°¡??????? SToF
+                       temp.type=token; //Â≠óÁ¨¶‰∏≤ËΩ¨ÊµÆÁÇπÊï∞ SToF
                    }
                    break;
             
@@ -573,16 +582,23 @@ int main()
                       my_return(temp);
                   }
                   else{
+                  	  retract();                 	  
                       state=0;
+                      temp.id="!";temp.type="-";
+                      my_return(temp);
                   }
                   break;
 
             case 20://  '#'
-                  cat();
+                  //cat();
+                  
                   get_char();
 			      while(C!='\n')
 				      get_char();
-			      retract();
+				  temp.id="#";
+				  temp.type="header";
+                  my_return(temp);
+			     // retract();
                   state=0;
                   break;
             case 21:// '*'
@@ -621,7 +637,11 @@ int main()
                 state=0;
                 break;
             }
+          /* string ss(token);
+          printf("^^^%s^^^\n",ss.c_str());*/
+          
 
     }while(C!=EOF);
 }
+
 
