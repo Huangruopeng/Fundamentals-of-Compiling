@@ -3,36 +3,29 @@
 #include <string.h>
 #include <windows.h>
 #include <iostream>
-//#include <string>
-
-
-using namespace std;
 #define bufferlengh 4095
 #define halflength 2047
 #define tokenlength 100
-#define keywordsnum 32
 #define tablelength 150
 
+using namespace std;
 
 FILE *file=NULL,*output=NULL,*error_file=NULL;
 
 //统计量 
-int NumSpace,NumKeyword,NumRow,NumAriOprt,NumLogOprt,NumError;
-
+int NumSpace,NumKeyword,NumRow,NumError,NumDigit,NumChar;
 
 int state;
 char C;
 int iskey;
-//string token;
 char token[tokenlength];
-//int lexemebegin;
 int tokenptr;
 int tableptr;
 int forward;
 char buffer[bufferlengh];
 
 char table[tablelength][30];
-char keywords[keywordsnum][15]={
+char keywords[32][15]={
 "auto","break","case","char","const","continue","default","do"
 ,"double","else","enum","extern","float","for","goto","if","int","long",
 "register","return","short","signed","sizeof","fstatic","struct","switch",
@@ -40,7 +33,7 @@ char keywords[keywordsnum][15]={
 
 void initial()
 {   state=0;
-    NumSpace=0;NumKeyword=0;NumRow=0;NumAriOprt=0;NumLogOprt=0;NumError=0;
+    NumSpace=0;NumKeyword=0;NumRow=0;NumError=0;NumDigit=0;NumChar=0;
 	forward=0;tokenptr=0;tableptr=0;
 }
 //填充缓冲区
@@ -49,10 +42,14 @@ void fillbuffer(int p)
 	for(i=0;i<=halflength&&!feof(file);i++)
 		buffer[p+i]=fgetc(file);
 	if(feof(file)) buffer[p+i]='\0';
+	NumChar=i-2;
 }
 
 void get_char()
 { 	C=buffer[forward];
+    if(C=='\n')
+	 	NumRow++;	  	 	  
+	 	
 	if(forward==halflength){
 		fillbuffer(halflength+1);
 		forward++;
@@ -68,12 +65,12 @@ void get_char()
 void get_nbc()
 {  while(1)
 	 {if(C==' '||C=='\n'||C=='	'){
-	 	 if(C=='\n')
-	 	  NumRow++;
-		  
+	 	 if(C==' ')
+	 	  NumSpace++;
+	 	 else if(C=='	')
+	 	  NumSpace=NumSpace+4;
+	 	  
 		 get_char();
-		// forward--;
-		 
 	  }
 	  else
 	   break;	 
@@ -101,38 +98,49 @@ void retract() //缓冲区指针回退
 
 int reserve()
 {   int i;
-	for(i=0;i<keywordsnum;i++)
+	for(i=0;i<32;i++)
 	   if(strcmp(token,keywords[i])==0)
-		  return i;
-	if(i==keywordsnum)
+		  { NumKeyword++;
+		    return i;
+		  }
+	if(i==32)
 	    return -1;	
 }
 
 int table_insert()
-{   strcpy(table[tableptr],token);
-	return tableptr++;
+{   int i;
+	for(i=0;i<tableptr;i++)
+	   if(strcmp(token,table[i])==0)
+		  return i;
+		  
+    if(i==tableptr)
+    {  strcpy(table[tableptr],token);
+	   return tableptr++;
+	}
+	
 }
 
 void error()
-{  printf("error:illegal character\n");
+{  fprintf(error_file,"ERROR:Line %d :illegal character\n",NumRow+1);
+   NumError++;
 }
 
 
 typedef struct{
 	string id;
 	string type; 
-	//string s;
-}idInfo;
+}CInfo;
 
-void my_return(idInfo temp)
+void my_return(CInfo temp)
 {
 	//输出控制台 和文件
 	printf("< %s , %s >\n",temp.id.c_str(),temp.type.c_str()); 
+	fprintf(output,"< %s , %s >\n",temp.id.c_str(),temp.type.c_str());
 }
 
 int main()
 {   char filename[30];
-	printf("Please input the filename(e.g. test1.cpp)：\n");
+	printf("请输入词法分析文件名(e.g. test1.cpp)：\n");
 	scanf("%s",filename);
 	file=fopen(filename,"r");
 	
@@ -145,12 +153,12 @@ int main()
 		scanf("%s",filename);
 		file=fopen(filename,"r");
 	}
-	printf("\nThe result of Lexical analyze:\n");
+	printf("\n----词法分析记号结果----:\n");
 	initial();
 	fillbuffer(0);
 	get_nbc();
 
-    idInfo temp;
+    CInfo temp;
     
     do{       
         switch (state)
@@ -256,7 +264,10 @@ int main()
                     case '.':
                               state=0;temp.id='.';temp.type='_';my_return(temp);break;     
                     case '\n':
-                              state=0;temp.id='\n';temp.type='-';my_return(temp);break;    
+                              state=0;temp.id='\n';temp.type='-';my_return(temp);break;  
+					case '\\':
+						      state=0;temp.id='\\';temp.type='-';my_return(temp);break;
+						
 
                     default:
                               state=23;break;
@@ -280,6 +291,7 @@ int main()
                            temp.type="-";
                            my_return(temp);
                          }
+                         
                         else
                         { int identry=table_insert();
                           temp.id="ID";
@@ -306,15 +318,32 @@ int main()
                         case '.':
                                   state=3;break;
 
-                        case 'E':
+                        case 'E': case 'e':
                                   state=5;break;                      
                     
-                        default:
+                        case 'a': case 'b': case 'c': case 'd': 
+                        case 'f': case 'g': case 'h': case 'i': case 'j':
+                        case 'k': case 'l': case 'm': case 'n': case 'o':
+                        case 'p': case 'q': case 'r': case 's': case 't':
+                        case 'u': case 'v': case 'w': case 'x': case 'y':
+                        case 'z':
+			            case 'A': case 'B': case 'C': case 'D':
+                        case 'F': case 'G': case 'H': case 'I': case 'J':
+                        case 'K': case 'L': case 'M': case 'N': case 'O':
+                        case 'P': case 'Q': case 'R': case 'S': case 'T':
+                        case 'U': case 'V': case 'W': case 'X': case 'Y':
+                        case 'Z': 
+                                 state=0;
+                                 fprintf(error_file,"ERROR:Line %d:Identifier cannot start with a number.\n",NumRow+1);
+                                 NumError++;
+                                 break;
+					    default:
                                   retract();
                                   state=0;
                                   temp.id="NUM";
                                   temp.type=token;//字符串转数字  SToI
-                                  my_return(temp);                                
+                                  my_return(temp);   
+								  NumDigit++;                             
                                   break;
                     }
                     break;
@@ -325,8 +354,9 @@ int main()
                     if( digit())
                      state=4;
                     else{
-                        error();
+                        fprintf(error_file,"ERROR:Line %d:Error in number.\n",NumRow+1);
                         state=0;
+                        NumError++;
                     }
                     break;
             
@@ -348,6 +378,7 @@ int main()
                                  temp.id="NUM";
                                  temp.type=token;//字符串转浮点数 SToF
                                  my_return(temp);
+                                  NumDigit++; 
                             break;               
                     }
                     break;
@@ -366,8 +397,9 @@ int main()
                                  state=6;break;
                         default:
                                  retract();
-                                 error();
+                                 fprintf(error_file,"ERROR:Line %d:Error in number.\n",NumRow+1);
                                  state=0;
+                                  NumError++;
                                  break;               
                     }
                     break;
@@ -378,12 +410,13 @@ int main()
                    if( digit() ) state=7;
                    else{
                        retract();
-                       error();
+                       fprintf(error_file,"ERROR:Line %d:Error in number.\n",NumRow+1);
                        state=0;
+                        NumError++;
                    }
                    break;
 
-            case 7:
+            case 7: 
                    cat();
                    get_char();
                    if( digit() ) state=7;
@@ -391,11 +424,14 @@ int main()
                        retract();
                        state=0;
                        temp.id="NUM";
+                       //string s(token)
                        temp.type=token; //字符串转浮点数 SToF
+                       my_return(temp);
+                        NumDigit++; 
                    }
                    break;
             
-            case 8:
+            case 8:// '<'
                   cat();
                   get_char();
                   
@@ -414,7 +450,12 @@ int main()
                           temp.id="relop";
                           temp.type="NE";
                           my_return(temp);
-                          break;                  
+                          break;   
+					  case '+':case '-':case '*':case '/':
+					       state=0;
+						   fprintf(error_file,"ERROR:Line %d:Error in Operator.\n",NumRow+1); 
+						    NumError++;
+						   break;           
                       default:
                           retract();
                           state=0;
@@ -435,6 +476,11 @@ int main()
                        temp.type="GE";
                        my_return(temp);
                    }
+                   else if(C=='+'||C=='-'||C=='*'||C=='/'||C=='<'){
+                   	   fprintf(error_file,"ERROR:Line %d:Error in Operator.\n",NumRow+1); 
+                   	    NumError++;
+				   }
+                   
                    else{
                        retract();
                        state=0;
@@ -452,11 +498,16 @@ int main()
                         temp.id="==";temp.type="-";
                         my_return(temp);
                     }
+                    else if(C=='+'||C=='-'||C=='*'||C=='/'||C=='<'||C=='>'){
+                   	   fprintf(error_file,"ERROR:Line %d:Error in Operator.\n",NumRow+1); 
+                   	    NumError++;
+				   }
                     else{
                         retract();
                         state=0;
                         temp.id="relop";temp.type="EQ";
                         my_return(temp);
+                        //NumAriOprt++;
                     }
                     break;
 
@@ -475,11 +526,16 @@ int main()
                         temp.id="+=";temp.type="-";
                         my_return(temp);
                     }
+                    else if(C=='-'||C=='*'||C=='/'||C=='<'||C=='>'){
+                   	   fprintf(error_file,"ERROR:Line %d:Error in Operator.\n",NumRow+1); 
+                   	    NumError++;
+				   }
                     else{
                         retract();
                         state=0;
                         temp.id="+";temp.type="-";
                         my_return(temp);
+                        
                     }
                     break;
             
@@ -498,11 +554,16 @@ int main()
                         temp.id="-=";temp.type="-";
                         my_return(temp);
                     }
+                    else if(C=='+'||C=='*'||C=='/'){
+                   	   fprintf(error_file,"ERROR:Line %d:Error in Operator.\n",NumRow+1); 
+                   	    NumError++;
+				   }
                     else{
                         retract();
                         state=0;
                         temp.id="-";temp.type="-";
                         my_return(temp);
+                       
                     }
                     break;
             case 13://'/'
@@ -516,9 +577,11 @@ int main()
                         my_return(temp);
                     }
                     else{
+                    	retract();
                         state=0;
                         temp.id="/";temp.type="-";
                         my_return(temp);
+                       
                     }
                     break;
             
@@ -540,8 +603,15 @@ int main()
             
             case 16:// '//'
                    cat();
-                   if(C=='\n') state=0;
-                   else state=16;
+                   get_char();
+                   if(C =='\n') 
+				      {state=0;
+				       //NumRow++;
+					  }
+                   else 
+				    { //retract();
+				      state=16;
+					}
                    break;
             
             case 17:// '|'
@@ -554,6 +624,7 @@ int main()
                       my_return(temp);
                   }
                   else{
+                  	  retract();
                       state=0;
                   }
                   break;
@@ -568,6 +639,7 @@ int main()
                       my_return(temp);
                   }
                   else{
+                  	  retract();
                       state=0;
                   }
                   break;
@@ -595,6 +667,7 @@ int main()
                   get_char();
 			      while(C!='\n')
 				      get_char();
+				  //NumRow++; 
 				  temp.id="#";
 				  temp.type="header";
                   my_return(temp);
@@ -611,6 +684,7 @@ int main()
                       my_return(temp);
                   }
                   else{
+                  	  retract();
                       state=0;
                       temp.id="*";temp.type="-";
                       my_return(temp);
@@ -627,13 +701,14 @@ int main()
                     my_return(temp);
                 }
                 else{
+                	retract();
                     state=0;
                 }
                 break;
 
 
             case 23:// 'other'
-                error();
+				error();
                 state=0;
                 break;
             }
@@ -642,6 +717,29 @@ int main()
           
 
     }while(C!=EOF);
+    printf("-程序记号表达已保存到output.txt文件中\n");
+    printf("-程序错误分析已保存到error_file.txt文件中\n\n");
+    printf("\n\n---------统计信息----------\n"); 
+    printf("代码语句行数:%d\n",NumRow);
+    printf("关键字数    :%d\n",NumKeyword);
+    printf("自定义字符数:%d\n",tableptr);
+    printf("字符总数    :%d\n",NumChar);
+    printf("空格数      :%d\n",NumSpace);
+    printf("数字数量    :%d\n",NumDigit);
+    printf("词法错误数量:%d\n",NumError);
+    
+    printf("\n\n---------用户自定义字符----------\n"); 
+    for(int i=0;i<tableptr;i++)
+    { printf("第%d个：%s\n",i+1,table[i]);
+	}
+	fclose(error_file);
+	printf("\n\n--------错误分析--------\n");
+	char ch;       //读取的字符，判断准则为ch不等于结束符EOF（end of file）
+		FILE * fid = fopen("error_file.txt","r");
+		while(EOF!=(ch= fgetc(fid)))
+			 printf("%c", ch); 
+
+	
 }
 
 
